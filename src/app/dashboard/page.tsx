@@ -1,10 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import CalendarView from '@/components/CalendarView';
 import DashboardSidebar from '@/components/DashboardSidebar';
 
-export default function Home() {
+export default function DashboardPage() {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
@@ -18,13 +17,8 @@ export default function Home() {
   if (!session) return null;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <div className="flex-1">
-        <CalendarView />
-      </div>
-      <div className="w-full lg:w-72 shrink-0">
-        <DashboardSidebar />
-      </div>
+    <div className="max-w-lg mx-auto">
+      <DashboardSidebar />
     </div>
   );
 }
