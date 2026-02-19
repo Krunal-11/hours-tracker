@@ -23,7 +23,7 @@ export default function Home() {
         <CalendarView />
       </div>
       <div className="w-full lg:w-72 shrink-0">
-        <DashboardSidebar />
+        <DashboardSidebar compact />
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
 import { getWeekRange, getMonthRange, formatDate } from '@/lib/utils';
 
-// GET /api/stats
-export async function GET() {
+// GET /api/stats?user_id=xxx
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -13,9 +13,17 @@ export async function GET() {
   const supabase = getServiceSupabase();
   const now = new Date();
 
-  // For submitters, show only their stats. For others, show all.
+  const { searchParams } = new URL(req.url);
+  const filterUserId = searchParams.get('user_id');
+
+  // For submitters, show only their stats. For others, optionally filter by user_id.
   const role = session.user.role;
-  const userId = role === 'submitter' ? session.user.id : null;
+  let userId: string | null = null;
+  if (role === 'submitter') {
+    userId = session.user.id;
+  } else if (filterUserId) {
+    userId = filterUserId;
+  }
 
   const weekRange = getWeekRange(now);
   const monthRange = getMonthRange(now);

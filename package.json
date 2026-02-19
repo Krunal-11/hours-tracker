@@ -17,14 +17,15 @@
     "lucide-react": "^0.564.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^7.0.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "resend": "^6.9.2",
     "tailwind-merge": "^3.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

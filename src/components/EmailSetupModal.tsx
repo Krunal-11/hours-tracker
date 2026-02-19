@@ -1,0 +1,248 @@
+'use client';
+
+import { useState } from 'react';
+import { Mail, Key, Eye, EyeOff, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+
+interface EmailSetupModalProps {
+  role: string;
+  currentEmail: string | null;
+  onComplete: () => void;
+}
+
+export default function EmailSetupModal({ role, currentEmail, onComplete }: EmailSetupModalProps) {
+  const [email, setEmail] = useState(currentEmail || '');
+  const [gmailAppPassword, setGmailAppPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const isSubmitter = role === 'submitter' || role === 'admin';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (isSubmitter && !gmailAppPassword) {
+      setError('Gmail App Password is required for submitters');
+      return;
+    }
+
+    if (isSubmitter && gmailAppPassword.replace(/\s/g, '').length !== 16) {
+      setError('Gmail App Password should be 16 characters (without spaces)');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        email,
+        emailSetupComplete: true,
+      };
+
+      if (isSubmitter && gmailAppPassword) {
+        body.gmailAppPassword = gmailAppPassword.replace(/\s/g, '');
+      }
+
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to save email settings');
+        return;
+      }
+
+      onComplete();
+    } catch {
+      setError('Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-emerald-600 px-6 py-5 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Set Up Email Notifications</h2>
+              <p className="text-emerald-100 text-sm">
+                {isSubmitter
+                  ? 'Required to send notifications to verifiers'
+                  : 'Required to receive notifications'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Email field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              placeholder="your.email@gmail.com"
+              required
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {isSubmitter
+                ? 'This Gmail address will be used to send notification emails to verifiers'
+                : 'Notification emails will be sent to this address'}
+            </p>
+          </div>
+
+          {/* Gmail App Password (submitters only) */}
+          {isSubmitter && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5" />
+                    Gmail App Password <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={gmailAppPassword}
+                    onChange={(e) => setGmailAppPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 pr-10 font-mono tracking-wider"
+                    placeholder="xxxx xxxx xxxx xxxx"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  16-character password from Google (not your regular Gmail password)
+                </p>
+              </div>
+
+              {/* Security note */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                <p className="text-xs text-blue-800">
+                  <strong>🔒 Security:</strong> Your App Password is encrypted with AES-256-GCM before
+                  storage. It cannot be viewed by anyone — not even the admin or database administrators.
+                </p>
+              </div>
+
+              {/* Instructions accordion */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowInstructions(!showInstructions)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <span>📋 How to generate a Gmail App Password</span>
+                  {showInstructions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+
+                {showInstructions && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-gray-100">
+                    <div className="mt-3 space-y-2.5">
+                      <div className="flex gap-2.5">
+                        <span className="shrink-0 w-6 h-6 bg-blue-100 text-blue-700 text-xs font-bold rounded-full flex items-center justify-center">1</span>
+                        <div className="text-sm text-gray-600">
+                          <strong>Enable 2-Step Verification</strong> on your Google account.
+                          Go to{' '}
+                          <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                            Google Account Security <ExternalLink className="w-3 h-3" />
+                          </a>{' '}
+                          → Turn on 2-Step Verification if not already enabled.
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5">
+                        <span className="shrink-0 w-6 h-6 bg-blue-100 text-blue-700 text-xs font-bold rounded-full flex items-center justify-center">2</span>
+                        <div className="text-sm text-gray-600">
+                          <strong>Generate an App Password.</strong> Go to{' '}
+                          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                            App Passwords page <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5">
+                        <span className="shrink-0 w-6 h-6 bg-blue-100 text-blue-700 text-xs font-bold rounded-full flex items-center justify-center">3</span>
+                        <div className="text-sm text-gray-600">
+                          <strong>Enter an app name</strong> (e.g., &quot;Hours Tracker&quot;) and click <strong>Create</strong>.
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2.5">
+                        <span className="shrink-0 w-6 h-6 bg-blue-100 text-blue-700 text-xs font-bold rounded-full flex items-center justify-center">4</span>
+                        <div className="text-sm text-gray-600">
+                          <strong>Copy the 16-character password</strong> shown (like <code className="bg-gray-100 px-1 rounded">abcd efgh ijkl mnop</code>) and paste it above.
+                          Spaces are automatically removed.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+                      <p className="text-xs text-yellow-800">
+                        <strong>Note:</strong> This is NOT your regular Gmail password. It&apos;s a special 16-character
+                        code generated by Google specifically for third-party apps.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* For viewers/verifiers */}
+          {!isSubmitter && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-gray-600">
+                You&apos;ll receive email notifications when hours are submitted or verified.
+                Please enter the email address where you&apos;d like to receive these notifications.
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm px-4 py-2 rounded-lg">{error}</div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? 'Saving...' : 'Save & Continue'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

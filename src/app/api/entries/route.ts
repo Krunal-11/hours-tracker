@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = searchParams.get('month'); // e.g., "2026-02"
   const userId = searchParams.get('user_id');
+  const recent = searchParams.get('recent'); // "true" to get recent entries (no month filter)
 
   let query = supabase
     .from('time_entries')
@@ -30,8 +31,11 @@ export async function GET(req: NextRequest) {
     query = query.eq('user_id', userId);
   }
 
-  // Month filtering
-  if (month) {
+  // Month filtering (unless fetching recent submissions)
+  if (recent === 'true') {
+    // Return last 50 entries across all time, no month filter
+    query = query.limit(50);
+  } else if (month) {
     const startDate = `${month}-01`;
     const [year, mon] = month.split('-').map(Number);
     const endDate = new Date(year, mon, 0).toISOString().split('T')[0];
@@ -116,6 +120,7 @@ export async function POST(req: NextRequest) {
     for (const u of notifyUsers) {
       if ((u.role === 'verifier' || u.role === 'admin') && u.email) {
         await sendNewEntryEmail(
+          session.user.id,
           u.email as string,
           session.user.fullName || session.user.username,
           date,

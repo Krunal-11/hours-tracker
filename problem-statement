@@ -1,0 +1,7 @@
+I want to build and deploy an hourly tracking app where I can track and get verificaiton for the number of hours I work each week along with descriptions for what I worked on each hour or a batch or hours.
+I want the application to be built as simply as possible but it should contain all necessary features and be deployed live in free.
+The workflow is such that I want to get verified from 1 person on hours worked and it should also have like a dashboard view in the side where it should how many hours worked this week , this month etc. 
+I was thinking of having it deployed in public and have username passowrds for me to submit it , for another person that will verify and another person that can see so 3 users along with admin portal where I can can manage users if required. It should have a main calender view with the months and it should show todays date and should have a plus button where I enter the times and add description of what I worked on and that should be visible to the other people once I post. it should also show them in a notificaiton icon that I posted the hours and desc and it should be verified. 
+This is like a side productivity tool for a place I am working at. I do not want to add unnecessary features that will add complexity
+The UI is supposed to be clean , intuitive and easy to use , not planning to add any major features in future so keep that in mind when building
+Recommened if anything else required. 

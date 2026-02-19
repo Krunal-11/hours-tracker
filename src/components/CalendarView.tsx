@@ -2,11 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
 import { TimeEntry } from '@/lib/types';
 import AddEntryModal from './AddEntryModal';
 import DayDetailPanel from './DayDetailPanel';
 import { cn } from '@/lib/utils';
+
+interface UserOption {
+  id: string;
+  full_name: string;
+  username: string;
+}
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = [
@@ -22,14 +28,37 @@ export default function CalendarView() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDate, setAddDate] = useState<string>('');
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
+  const [submitters, setSubmitters] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+
+  const user = session?.user as { id: string; role: string; username: string; fullName: string } | undefined;
+  const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
+  const canSubmit = user?.role === 'admin' || user?.role === 'submitter';
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
+  // Fetch list of submitters for verifier/viewer/admin
+  useEffect(() => {
+    if (!canViewOthers) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/users/submitters');
+        if (res.ok) {
+          const data = await res.json();
+          setSubmitters(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch submitters:', err);
+      }
+    })();
+  }, [canViewOthers]);
+
   const fetchEntries = useCallback(async () => {
     try {
-      const res = await fetch(`/api/entries?month=${monthKey}`);
+      const userFilter = canViewOthers && selectedUserId ? `&user_id=${selectedUserId}` : '';
+      const res = await fetch(`/api/entries?month=${monthKey}${userFilter}`);
       if (res.ok) {
         const data = await res.json();
         setEntries(data);
@@ -37,7 +66,7 @@ export default function CalendarView() {
     } catch (err) {
       console.error('Failed to fetch entries:', err);
     }
-  }, [monthKey]);
+  }, [monthKey, selectedUserId, canViewOthers]);
 
   useEffect(() => {
     fetchEntries();
@@ -113,8 +142,7 @@ export default function CalendarView() {
     return total;
   };
 
-  const user = session?.user as { role: string } | undefined;
-  const canSubmit = user?.role === 'admin' || user?.role === 'submitter';
+  // canSubmit and user already defined above
 
   const handleAddEntry = (date?: string) => {
     setEditEntry(null);
@@ -144,6 +172,27 @@ export default function CalendarView() {
     <div className="flex flex-col lg:flex-row gap-6 h-full">
       {/* Calendar */}
       <div className="flex-1">
+        {/* User selector for verifier/viewer/admin */}
+        {canViewOthers && submitters.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+            <Users className="w-4 h-4 text-gray-500" />
+            <label className="text-sm font-medium text-gray-700">Viewing hours for:</label>
+            <select
+              value={selectedUserId}
+              onChange={(e) => {
+                setSelectedUserId(e.target.value);
+                setSelectedDate(null);
+              }}
+              className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Submitters</option>
+              {submitters.map((s) => (
+                <option key={s.id} value={s.id}>{s.full_name} (@{s.username})</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Month navigation */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -219,7 +268,7 @@ export default function CalendarView() {
                       {day}
                     </span>
                     {hours !== null && (
-                      <span className="text-[10px] font-medium text-gray-400">
+                      <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-1 py-0.5 rounded">
                         {hours}h
                       </span>
                     )}

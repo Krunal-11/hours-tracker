@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
   // Send email to submitter
   if (submitter.email) {
     await sendVerificationEmail(
+      session.user.id,
       submitter.email as string,
       session.user.fullName || session.user.username,
       entry.date,

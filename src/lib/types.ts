@@ -8,6 +8,9 @@ export interface User {
   email: string | null;
   role: UserRole;
   password_hash: string;
+  must_change_password: boolean;
+  gmail_app_password_encrypted: string | null;
+  email_setup_complete: boolean;
   created_at: string;
 }
 

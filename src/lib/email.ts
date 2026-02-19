@@ -1,10 +1,54 @@
-import { Resend } from 'resend';
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+import nodemailer from 'nodemailer';
+import { getServiceSupabase } from '@/lib/supabase';
+import { decrypt } from '@/lib/encryption';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// Fallback transporter using env-level Gmail (for system notifications if needed)
+const fallbackTransporter =
+  process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
+    ? nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD,
+        },
+      })
+    : null;
+const FALLBACK_EMAIL = process.env.GMAIL_USER || '';
+
+/**
+ * Create a Nodemailer transport using a specific user's stored Gmail credentials.
+ * Returns null if the user doesn't have Gmail credentials set up.
+ */
+async function getUserTransporter(userId: string): Promise<{ transporter: nodemailer.Transporter; fromEmail: string } | null> {
+  try {
+    const supabase = getServiceSupabase();
+    const { data: user } = await supabase
+      .from('users')
+      .select('email, gmail_app_password_encrypted')
+      .eq('id', userId)
+      .single();
+
+    if (!user?.email || !user?.gmail_app_password_encrypted) {
+      return null;
+    }
+
+    const appPassword = decrypt(user.gmail_app_password_encrypted);
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: user.email,
+        pass: appPassword,
+      },
+    });
+
+    return { transporter, fromEmail: user.email };
+  } catch (err) {
+    console.error('[Email] Failed to create user transporter:', err);
+    return null;
+  }
+}
 
 interface SendEmailParams {
   to: string;
@@ -12,26 +56,51 @@ interface SendEmailParams {
   html: string;
 }
 
-async function sendEmail({ to, subject, html }: SendEmailParams) {
-  if (!resend) {
-    console.log('[Email] Resend not configured, skipping email:', subject);
-    return;
+/**
+ * Send email using a specific user's Gmail credentials.
+ * Falls back to the system Gmail if the user doesn't have credentials set up.
+ */
+async function sendEmailAsUser(userId: string, params: SendEmailParams) {
+  const { to, subject, html } = params;
+
+  // Try user's own Gmail first
+  const userTransport = await getUserTransporter(userId);
+  if (userTransport) {
+    try {
+      await userTransport.transporter.sendMail({
+        from: `Hours Tracker <${userTransport.fromEmail}>`,
+        to,
+        subject,
+        html,
+      });
+      console.log('[Email] Sent via user SMTP:', subject, '->', to);
+      return;
+    } catch (error) {
+      console.error('[Email] User SMTP failed, trying fallback:', error);
+    }
   }
 
-  try {
-    await resend.emails.send({
-      from: 'Hours Tracker <onboarding@resend.dev>',
-      to,
-      subject,
-      html,
-    });
-    console.log('[Email] Sent:', subject, '->', to);
-  } catch (error) {
-    console.error('[Email] Failed to send:', error);
+  // Fallback to system Gmail
+  if (fallbackTransporter && FALLBACK_EMAIL) {
+    try {
+      await fallbackTransporter.sendMail({
+        from: `Hours Tracker <${FALLBACK_EMAIL}>`,
+        to,
+        subject,
+        html,
+      });
+      console.log('[Email] Sent via fallback SMTP:', subject, '->', to);
+      return;
+    } catch (error) {
+      console.error('[Email] Fallback SMTP also failed:', error);
+    }
   }
+
+  console.log('[Email] No email transport available, skipping:', subject);
 }
 
 export async function sendNewEntryEmail(
+  senderUserId: string,
   verifierEmail: string,
   submitterName: string,
   date: string,
@@ -40,7 +109,7 @@ export async function sendNewEntryEmail(
   hours: number,
   description: string
 ) {
-  await sendEmail({
+  await sendEmailAsUser(senderUserId, {
     to: verifierEmail,
     subject: `New hours submitted by ${submitterName} — ${date}`,
     html: `
@@ -60,6 +129,7 @@ export async function sendNewEntryEmail(
 }
 
 export async function sendVerificationEmail(
+  senderUserId: string,
   submitterEmail: string,
   verifierName: string,
   date: string,
@@ -70,7 +140,7 @@ export async function sendVerificationEmail(
   const statusColor = status === 'verified' ? '#16a34a' : '#dc2626';
   const statusLabel = status === 'verified' ? 'Verified ✓' : 'Rejected ✗';
 
-  await sendEmail({
+  await sendEmailAsUser(senderUserId, {
     to: submitterEmail,
     subject: `Hours for ${date} — ${statusLabel}`,
     html: `

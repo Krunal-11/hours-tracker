@@ -8,6 +8,8 @@ declare module 'next-auth' {
       username: string;
       fullName: string;
       userEmail: string | null;
+      mustChangePassword: boolean;
+      emailSetupComplete: boolean;
     } & DefaultSession['user'];
   }
 }
@@ -19,5 +21,7 @@ declare module 'next-auth/jwt' {
     username: string;
     fullName: string;
     userEmail: string | null;
+    mustChangePassword: boolean;
+    emailSetupComplete: boolean;
   }
 }

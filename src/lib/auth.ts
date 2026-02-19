@@ -46,21 +46,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
-        // Fetch role from DB
+      }
+      // Fetch/refresh user data from DB on login and on session update
+      if (user || trigger === 'update') {
         const supabase = getServiceSupabase();
         const { data } = await supabase
           .from('users')
-          .select('role, username, full_name, email')
-          .eq('id', user.id)
+          .select('role, username, full_name, email, must_change_password, email_setup_complete')
+          .eq('id', token.id || user?.id)
           .single();
         if (data) {
           token.role = data.role;
           token.username = data.username;
           token.fullName = data.full_name;
           token.userEmail = data.email;
+          token.mustChangePassword = data.must_change_password ?? true;
+          token.emailSetupComplete = data.email_setup_complete ?? false;
         }
       }
       return token;
@@ -74,6 +78,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         user.username = token.username;
         user.fullName = token.fullName;
         user.userEmail = token.userEmail;
+        user.mustChangePassword = token.mustChangePassword;
+        user.emailSetupComplete = token.emailSetupComplete;
       }
       return session;
     },
