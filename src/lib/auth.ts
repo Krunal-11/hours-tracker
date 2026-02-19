@@ -47,8 +47,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
-      if (user) {
-        token.id = user.id;
+      if (user?.id) {
+        token.id = user.id as string;
       }
       // Fetch/refresh user data from DB on login and on session update
       if (user || trigger === 'update') {
