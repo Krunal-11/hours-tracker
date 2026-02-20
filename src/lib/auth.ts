@@ -3,7 +3,14 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { getServiceSupabase } from '@/lib/supabase';
 
+// DEBUG: logs appear in Vercel Function logs (Runtime Logs tab)
+const DEBUG = true;
+function dbg(...args: unknown[]) {
+  if (DEBUG) console.log('[AUTH DEBUG]', ...args);
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // Required for Vercel / non-localhost deployments
   providers: [
     Credentials({
       name: 'credentials',
@@ -12,7 +19,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        dbg('authorize called, username:', credentials?.username);
+
         if (!credentials?.username || !credentials?.password) {
+          dbg('authorize: missing credentials');
           return null;
         }
 
@@ -24,18 +34,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .single();
 
         if (error || !user) {
+          dbg('authorize: user not found or DB error:', error?.message);
           return null;
         }
+
+        dbg('authorize: user found, checking password');
 
         const isValidPassword = await bcrypt.compare(
           credentials.password as string,
           user.password_hash
         );
 
+        dbg('authorize: password valid?', isValidPassword);
+
         if (!isValidPassword) {
           return null;
         }
 
+        dbg('authorize: returning user id:', user.id);
         return {
           id: user.id,
           name: user.full_name,
@@ -47,20 +63,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
-      console.log('[AUTH-JWT] called — trigger:', trigger, '| user:', !!user, '| token.id:', token.id);
+      dbg('jwt callback — trigger:', trigger, '| has user:', !!user, '| token.id:', token.id);
       if (user?.id) {
         token.id = user.id as string;
       }
       // Fetch/refresh user data from DB on login and on session update
       if (user || trigger === 'update') {
-        console.log('[AUTH-JWT] fetching DB flags for id:', token.id || user?.id);
         const supabase = getServiceSupabase();
-        const { data, error: dbErr } = await supabase
+        const { data, error } = await supabase
           .from('users')
           .select('role, username, full_name, email, must_change_password, email_setup_complete')
           .eq('id', token.id || user?.id)
           .single();
-        console.log('[AUTH-JWT] DB result:', JSON.stringify(data), '| error:', dbErr?.message);
+        dbg('jwt callback DB fetch — data?', !!data, '| error:', error?.message);
         if (data) {
           token.role = data.role;
           token.username = data.username;
@@ -69,13 +84,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.mustChangePassword = data.must_change_password ?? true;
           token.emailSetupComplete = data.email_setup_complete ?? false;
         }
-      } else {
-        console.log('[AUTH-JWT] skipping DB fetch (no user, trigger:', trigger, ')');
       }
-      console.log('[AUTH-JWT] returning token — mustChangePassword:', token.mustChangePassword, ', emailSetupComplete:', token.emailSetupComplete);
       return token;
     },
     async session({ session, token }) {
+      dbg('session callback — token.id:', token.id);
       if (session.user) {
         session.user.id = token.id as string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,7 +100,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         user.mustChangePassword = token.mustChangePassword;
         user.emailSetupComplete = token.emailSetupComplete;
       }
-      console.log('[AUTH-SESSION] returning session — mustChangePassword:', token.mustChangePassword, ', emailSetupComplete:', token.emailSetupComplete);
       return session;
     },
   },
