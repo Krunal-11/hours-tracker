@@ -36,6 +36,7 @@ export default function LoginPage() {
         username,
         password,
         redirect: false,
+        callbackUrl: '/',  // Explicitly set so NextAuth doesn't store '/login' as callbackUrl
       });
 
       debugData.step = 'signIn returned';
