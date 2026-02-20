@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Clock } from 'lucide-react';
 
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { update } = useSession();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,19 +19,25 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log('[LOGIN] 1. Calling signIn...');
       const result = await signIn('credentials', {
         username,
         password,
         redirect: false,
       });
+      console.log('[LOGIN] 2. signIn result:', JSON.stringify(result));
 
       if (result?.error) {
         setError('Invalid username or password');
       } else {
+        console.log('[LOGIN] 3. signIn succeeded, calling update({})...');
+        const updatedSession = await update({});
+        console.log('[LOGIN] 4. update({}) returned:', JSON.stringify(updatedSession, null, 2));
+        console.log('[LOGIN] 5. Navigating to / ...');
         router.push('/');
-        router.refresh();
       }
-    } catch {
+    } catch (err) {
+      console.error('[LOGIN] ERROR:', err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);

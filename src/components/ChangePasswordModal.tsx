@@ -31,6 +31,7 @@ export default function ChangePasswordModal({ username, onComplete }: ChangePass
 
     setLoading(true);
     try {
+      console.log('[CHANGE-PWD] 1. Calling PUT /api/profile...');
       const res = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -39,13 +40,18 @@ export default function ChangePasswordModal({ username, onComplete }: ChangePass
           isFirstLogin: true,
         }),
       });
+      console.log('[CHANGE-PWD] 2. API response status:', res.status);
 
       if (!res.ok) {
         const data = await res.json();
+        console.log('[CHANGE-PWD] 2b. API error:', data);
         setError(data.error || 'Failed to change password');
         return;
       }
 
+      const responseData = await res.json();
+      console.log('[CHANGE-PWD] 3. API success response:', responseData);
+      console.log('[CHANGE-PWD] 4. Calling onComplete()...');
       onComplete();
     } catch {
       setError('Something went wrong');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ChangePasswordModal from './ChangePasswordModal';
 import EmailSetupModal from './EmailSetupModal';
@@ -16,14 +16,26 @@ import EmailSetupModal from './EmailSetupModal';
 export default function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const { data: session, status, update } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const [step, setStep] = useState<'loading' | 'change-password' | 'email-setup' | 'done'>('loading');
 
+  // Debug: log every render
+  console.log('[GUARD] render — status:', status, '| step:', step, '| session user:', session?.user ? JSON.stringify({
+    id: (session.user as any).id,
+    mustChangePassword: (session.user as any).mustChangePassword,
+    emailSetupComplete: (session.user as any).emailSetupComplete,
+    role: (session.user as any).role,
+  }) : 'null', '| pathname:', pathname);
+
   useEffect(() => {
+    console.log('[GUARD] useEffect fired — status:', status, '| session?.user:', !!session?.user);
     if (status === 'loading') {
+      console.log('[GUARD]   → setStep(loading)');
       setStep('loading');
       return;
     }
     if (!session?.user) {
+      console.log('[GUARD]   → setStep(done) — no user');
       setStep('done'); // Not logged in — no modals, page will redirect via middleware
       return;
     }
@@ -34,30 +46,56 @@ export default function OnboardingGuard({ children }: { children: React.ReactNod
       role: string;
     };
 
+    console.log('[GUARD]   → user flags: mustChangePassword=', user.mustChangePassword, ', emailSetupComplete=', user.emailSetupComplete);
+
     if (user.mustChangePassword) {
+      console.log('[GUARD]   → setStep(change-password)');
       setStep('change-password');
     } else if (!user.emailSetupComplete) {
+      console.log('[GUARD]   → setStep(email-setup)');
       setStep('email-setup');
     } else {
+      console.log('[GUARD]   → setStep(done)');
       setStep('done');
     }
   }, [session, status]);
 
   const handlePasswordChanged = async () => {
-    // Update the session to reflect the change
-    await update();
-    setStep('email-setup');
+    console.log('[GUARD] handlePasswordChanged called, invoking update({})...');
+    const refreshedSession = await update({});
+    console.log('[GUARD] handlePasswordChanged — update() returned:', JSON.stringify(refreshedSession, null, 2));
+    const updatedUser = refreshedSession?.user as
+      | { mustChangePassword?: boolean; emailSetupComplete?: boolean }
+      | undefined;
+
+    console.log('[GUARD] handlePasswordChanged — updatedUser:', JSON.stringify(updatedUser));
+
+    if (updatedUser?.mustChangePassword) {
+      console.log('[GUARD] handlePasswordChanged — still mustChangePassword! staying on change-password');
+      setStep('change-password');
+      return;
+    }
+
+    if (updatedUser && !updatedUser.emailSetupComplete) {
+      console.log('[GUARD] handlePasswordChanged — moving to email-setup');
+      setStep('email-setup');
+      return;
+    }
+
+    console.log('[GUARD] handlePasswordChanged — all done, setting step=done');
+    setStep('done');
+    router.refresh();
   };
 
   const handleEmailSetupComplete = async () => {
-    // Update the session to reflect the change
-    await update();
+    console.log('[GUARD] handleEmailSetupComplete called, invoking update({})...');
+    await update({});
     setStep('done');
     router.refresh();
   };
 
   // Don't show modals on the login page
-  if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+  if (pathname === '/login') {
     return <>{children}</>;
   }
 

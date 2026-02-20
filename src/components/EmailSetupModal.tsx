@@ -9,22 +9,64 @@ interface EmailSetupModalProps {
   onComplete: () => void;
 }
 
+/**
+ * Validates an email address format.
+ * Checks structure, domain has at least one dot, and TLD is 2+ chars.
+ */
+function isValidEmail(email: string): boolean {
+  // Standard email regex: local@domain.tld
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Returns a user-friendly email validation error, or null if valid.
+ * For submitters/admins (who use Gmail SMTP), the address must be @gmail.com.
+ */
+function getEmailError(email: string, isSubmitter: boolean): string | null {
+  const trimmed = email.trim();
+
+  if (!trimmed) return 'Email address is required';
+  if (!trimmed.includes('@')) return 'Email must contain an @ symbol';
+
+  const [localPart, domain] = trimmed.split('@');
+
+  if (!localPart || localPart.length === 0) return 'Email is missing the part before @';
+  if (!domain || domain.length === 0) return 'Email is missing the domain after @';
+  if (!domain.includes('.')) return 'Email domain must contain a dot (e.g., gmail.com)';
+
+  const tld = domain.split('.').pop() || '';
+  if (tld.length < 2) return 'Email domain has an invalid TLD';
+
+  if (!isValidEmail(trimmed)) return 'Please enter a valid email address';
+
+  if (isSubmitter && !domain.toLowerCase().endsWith('gmail.com')) {
+    return 'Submitters must use a Gmail address (required for sending notifications via Gmail SMTP)';
+  }
+
+  return null;
+}
+
 export default function EmailSetupModal({ role, currentEmail, onComplete }: EmailSetupModalProps) {
   const [email, setEmail] = useState(currentEmail || '');
   const [gmailAppPassword, setGmailAppPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [error, setError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isSubmitter = role === 'submitter' || role === 'admin';
+  const emailError = emailTouched ? getEmailError(email, isSubmitter) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address');
+    const validationError = getEmailError(email, isSubmitter);
+    if (validationError) {
+      setError(validationError);
+      setEmailTouched(true);
       return;
     }
 
@@ -40,13 +82,31 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
 
     setLoading(true);
     try {
+      const cleanAppPassword = gmailAppPassword.replace(/\s/g, '');
+
+      // For submitters: validate Gmail SMTP credentials before saving
+      if (isSubmitter && cleanAppPassword) {
+        const verifyRes = await fetch('/api/verify-smtp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), appPassword: cleanAppPassword }),
+        });
+
+        if (!verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          setError(verifyData.error || 'Gmail credentials verification failed');
+          return;
+        }
+      }
+
+      // Credentials verified — save to profile
       const body: Record<string, unknown> = {
-        email,
+        email: email.trim(),
         emailSetupComplete: true,
       };
 
-      if (isSubmitter && gmailAppPassword) {
-        body.gmailAppPassword = gmailAppPassword.replace(/\s/g, '');
+      if (isSubmitter && cleanAppPassword) {
+        body.gmailAppPassword = cleanAppPassword;
       }
 
       const res = await fetch('/api/profile', {
@@ -99,12 +159,21 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="your.email@gmail.com"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailTouched) setEmailTouched(true);
+              }}
+              onBlur={() => setEmailTouched(true)}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                emailError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+              }`}
+              placeholder={isSubmitter ? 'your.email@gmail.com' : 'your.email@example.com'}
               required
               autoFocus
             />
+            {emailError && (
+              <p className="text-xs text-red-600 mt-1">{emailError}</p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
               {isSubmitter
                 ? 'This Gmail address will be used to send notification emails to verifiers'
@@ -239,7 +308,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             disabled={loading}
             className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Saving...' : 'Save & Continue'}
+            {loading ? 'Verifying & Saving...' : 'Save & Continue'}
           </button>
         </form>
       </div>
