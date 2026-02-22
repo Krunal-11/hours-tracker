@@ -51,7 +51,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
   const [emailTouched, setEmailTouched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const isSubmitter = role === 'submitter' || role === 'admin';
+  const requiresSmtp = role === 'submitter' || role === 'verifier' || role === 'admin';
   const emailError = emailTouched ? getEmailError(email) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,12 +65,12 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
       return;
     }
 
-    if (isSubmitter && !gmailAppPassword) {
-      setError('Google App Password is required for submitters');
+    if (requiresSmtp && !gmailAppPassword) {
+      setError('Google App Password is required for this role');
       return;
     }
 
-    if (isSubmitter && gmailAppPassword.replace(/\s/g, '').length !== 16) {
+    if (requiresSmtp && gmailAppPassword.replace(/\s/g, '').length !== 16) {
       setError('Google App Password should be 16 characters (without spaces)');
       return;
     }
@@ -79,8 +79,8 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
     try {
       const cleanAppPassword = gmailAppPassword.replace(/\s/g, '');
 
-      // For submitters: validate Gmail SMTP credentials before saving
-      if (isSubmitter && cleanAppPassword) {
+      // For roles that send emails: validate Gmail SMTP credentials before saving
+      if (requiresSmtp && cleanAppPassword) {
         const verifyRes = await fetch('/api/verify-smtp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -100,7 +100,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
         emailSetupComplete: true,
       };
 
-      if (isSubmitter && cleanAppPassword) {
+      if (requiresSmtp && cleanAppPassword) {
         body.gmailAppPassword = cleanAppPassword;
       }
 
@@ -136,8 +136,8 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             <div>
               <h2 className="text-lg font-semibold">Set Up Email Notifications</h2>
               <p className="text-emerald-100 text-sm">
-                {isSubmitter
-                  ? 'Required to send notifications to verifiers'
+                {requiresSmtp
+                  ? 'Required to send notification emails from your account'
                   : 'Required to receive notifications'}
               </p>
             </div>
@@ -170,14 +170,14 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
               <p className="text-xs text-red-600 mt-1">{emailError}</p>
             )}
             <p className="text-xs text-gray-500 mt-1">
-              {isSubmitter
-                ? 'This Google account email will be used to send notification emails to verifiers'
+              {requiresSmtp
+                ? 'This Google account email will be used to send notification emails'
                 : 'Notification emails will be sent to this address'}
             </p>
           </div>
 
-          {/* Gmail App Password (submitters only) */}
-          {isSubmitter && (
+          {/* Gmail App Password (required for sender roles) */}
+          {requiresSmtp && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -284,8 +284,8 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             </>
           )}
 
-          {/* For viewers/verifiers */}
-          {!isSubmitter && (
+          {/* For viewer-only recipients */}
+          {!requiresSmtp && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
               <p className="text-sm text-gray-600">
                 You&apos;ll receive email notifications when hours are submitted or verified.

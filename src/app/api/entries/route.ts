@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Create notifications for verifiers and viewers
+  // Create notifications for viewers, admins, and verifiers
   const { data: notifyUsers } = await supabase
     .from('users')
     .select('id, email, role')
@@ -116,9 +116,9 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('notifications').insert(notifications);
 
-    // Send email to verifiers
+    // Send email only to verifiers
     for (const u of notifyUsers) {
-      if ((u.role === 'verifier' || u.role === 'admin') && u.email) {
+      if (u.role === 'verifier' && u.email) {
         await sendNewEntryEmail(
           session.user.id,
           u.email as string,
@@ -190,19 +190,35 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Notify verifiers about resubmission
-  const { data: verifiers } = await supabase
+  // Notify viewers, admins, and verifiers about resubmission
+  const { data: notifyUsers } = await supabase
     .from('users')
     .select('id, email, role')
-    .in('role', ['verifier', 'admin']);
+    .in('role', ['verifier', 'admin', 'viewer']);
 
-  if (verifiers) {
-    const notifications = verifiers.map((u: Record<string, unknown>) => ({
+  if (notifyUsers && notifyUsers.length > 0) {
+    const notifications = notifyUsers.map((u: Record<string, unknown>) => ({
       user_id: u.id as string,
       entry_id: entry.id,
       message: `${session.user.fullName || session.user.username} resubmitted hours for ${date}`,
     }));
     await supabase.from('notifications').insert(notifications);
+
+    // Send email only to verifiers
+    for (const u of notifyUsers) {
+      if (u.role === 'verifier' && u.email) {
+        await sendNewEntryEmail(
+          session.user.id,
+          u.email as string,
+          session.user.fullName || session.user.username,
+          date,
+          start_time,
+          end_time,
+          hours,
+          description
+        );
+      }
+    }
   }
 
   return NextResponse.json(entry);

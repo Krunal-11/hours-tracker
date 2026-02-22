@@ -49,12 +49,39 @@ export async function POST(req: NextRequest) {
 
   const submitter = entry.users as Record<string, unknown>;
 
-  // Notify the submitter
-  await supabase.from('notifications').insert({
-    user_id: submitter.id as string,
-    entry_id: entry.id,
-    message: `Your hours for ${entry.date} were ${status} by ${session.user.fullName || session.user.username}${action === 'reject' && comment ? ': ' + comment : ''}`,
-  });
+  if (action === 'reject') {
+    const { data: rejectNotifyUsers } = await supabase
+      .from('users')
+      .select('id, role')
+      .in('role', ['viewer', 'admin']);
+
+    const notifications: Array<{ user_id: string; entry_id: string; message: string }> = [
+      {
+        user_id: submitter.id as string,
+        entry_id: entry.id,
+        message: `Your hours for ${entry.date} were ${status} by ${session.user.fullName || session.user.username}${comment ? ': ' + comment : ''}`,
+      },
+    ];
+
+    if (rejectNotifyUsers && rejectNotifyUsers.length > 0) {
+      notifications.push(
+        ...rejectNotifyUsers.map((u: Record<string, unknown>) => ({
+          user_id: u.id as string,
+          entry_id: entry.id,
+          message: `${submitter.full_name || 'A submitter'}'s hours for ${entry.date} were rejected by ${session.user.fullName || session.user.username}${comment ? ': ' + comment : ''}`,
+        }))
+      );
+    }
+
+    await supabase.from('notifications').insert(notifications);
+  } else {
+    // Notify submitter on verify
+    await supabase.from('notifications').insert({
+      user_id: submitter.id as string,
+      entry_id: entry.id,
+      message: `Your hours for ${entry.date} were ${status} by ${session.user.fullName || session.user.username}`,
+    });
+  }
 
   // Send email to submitter
   if (submitter.email) {
