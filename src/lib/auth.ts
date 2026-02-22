@@ -3,12 +3,6 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { getServiceSupabase } from '@/lib/supabase';
 
-// DEBUG: logs appear in Vercel Function logs (Runtime Logs tab)
-const DEBUG = true;
-function dbg(...args: unknown[]) {
-  if (DEBUG) console.log('[AUTH DEBUG]', ...args);
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true, // Required for Vercel / non-localhost deployments
   providers: [
@@ -19,10 +13,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        dbg('authorize called, username:', credentials?.username);
-
         if (!credentials?.username || !credentials?.password) {
-          dbg('authorize: missing credentials');
           return null;
         }
 
@@ -34,24 +25,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .single();
 
         if (error || !user) {
-          dbg('authorize: user not found or DB error:', error?.message);
           return null;
         }
-
-        dbg('authorize: user found, checking password');
 
         const isValidPassword = await bcrypt.compare(
           credentials.password as string,
           user.password_hash
         );
 
-        dbg('authorize: password valid?', isValidPassword);
-
         if (!isValidPassword) {
           return null;
         }
 
-        dbg('authorize: returning user id:', user.id);
         return {
           id: user.id,
           name: user.full_name,
@@ -63,7 +48,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, trigger }) {
-      dbg('jwt callback — trigger:', trigger, '| has user:', !!user, '| token.id:', token.id);
       if (user?.id) {
         token.id = user.id as string;
       }
@@ -75,7 +59,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .select('role, username, full_name, email, must_change_password, email_setup_complete')
           .eq('id', token.id || user?.id)
           .single();
-        dbg('jwt callback DB fetch — data?', !!data, '| error:', error?.message);
         if (data) {
           token.role = data.role;
           token.username = data.username;
@@ -88,7 +71,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      dbg('session callback — token.id:', token.id);
       if (session.user) {
         session.user.id = token.id as string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

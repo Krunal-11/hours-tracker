@@ -1,81 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 import { Clock } from 'lucide-react';
-
-// DEBUG: toggle this to false to remove debug panel before next production deploy
-const DEBUG_MODE = true;
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
-  const { data: session, status: sessionStatus } = useSession();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setDebugInfo(null);
     setLoading(true);
 
-    const debugData: Record<string, unknown> = {
-      timestamp: new Date().toISOString(),
-      step: 'start',
-      sessionStatusBefore: sessionStatus,
-      sessionUserBefore: session?.user ?? null,
-    };
-
     try {
-      debugData.step = 'calling signIn';
-      console.log('[DEBUG] Calling signIn with redirect:false', { username });
-
       const result = await signIn('credentials', {
         username,
         password,
         redirect: false,
-        callbackUrl: '/',  // Explicitly set so NextAuth doesn't store '/login' as callbackUrl
+        callbackUrl: '/',
       });
 
-      debugData.step = 'signIn returned';
-      debugData.result = {
-        ok: result?.ok,
-        error: result?.error,
-        status: result?.status,
-        url: result?.url,
-      };
-      console.log('[DEBUG] signIn result:', debugData.result);
-
       if (result?.error) {
-        debugData.step = 'error branch';
-        console.log('[DEBUG] Error branch — result.error:', result.error);
         setError('Invalid username or password');
-        setDebugInfo(DEBUG_MODE ? debugData : null);
       } else if (!result?.ok) {
-        // ok is false but no error string — unexpected failure
-        debugData.step = 'not-ok branch (no error string)';
-        console.log('[DEBUG] result.ok is false with no error string. Full result:', result);
-        setError('Sign-in did not succeed. Check debug info.');
-        setDebugInfo(DEBUG_MODE ? debugData : null);
+        setError('Sign-in did not succeed. Please try again.');
       } else {
-        debugData.step = 'success — navigating to /';
-        console.log('[DEBUG] Success, navigating to /');
-        if (DEBUG_MODE) {
-          // Show debug info briefly before navigating so you can read it in Vercel
-          setDebugInfo(debugData);
-          setTimeout(() => { window.location.href = '/'; }, 2000);
-        } else {
-          window.location.href = '/';
-        }
+        window.location.href = '/';
       }
-    } catch (err) {
-      debugData.step = 'caught exception';
-      debugData.exception = String(err);
-      console.error('[DEBUG] signIn threw exception:', err);
+    } catch {
       setError('Something went wrong. Please try again.');
-      setDebugInfo(DEBUG_MODE ? debugData : null);
     } finally {
       setLoading(false);
     }
@@ -139,24 +95,6 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          {/* DEBUG PANEL — remove before final production deploy */}
-          {DEBUG_MODE && (
-            <div className="mt-4 rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-xs">
-              <p className="font-semibold text-yellow-800 mb-1">🔍 Debug Info</p>
-              <p className="text-yellow-700">
-                Session status: <strong>{sessionStatus}</strong>
-              </p>
-              <p className="text-yellow-700">
-                Session user: <strong>{session?.user ? JSON.stringify((session.user as { username?: string; role?: string }).username ?? session.user) : 'none'}</strong>
-              </p>
-              {debugInfo && (
-                <pre className="mt-2 text-yellow-900 overflow-x-auto whitespace-pre-wrap break-all">
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

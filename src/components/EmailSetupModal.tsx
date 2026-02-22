@@ -21,9 +21,8 @@ function isValidEmail(email: string): boolean {
 
 /**
  * Returns a user-friendly email validation error, or null if valid.
- * For submitters/admins (who use Gmail SMTP), the address must be @gmail.com.
  */
-function getEmailError(email: string, isSubmitter: boolean): string | null {
+function getEmailError(email: string): string | null {
   const trimmed = email.trim();
 
   if (!trimmed) return 'Email address is required';
@@ -33,16 +32,12 @@ function getEmailError(email: string, isSubmitter: boolean): string | null {
 
   if (!localPart || localPart.length === 0) return 'Email is missing the part before @';
   if (!domain || domain.length === 0) return 'Email is missing the domain after @';
-  if (!domain.includes('.')) return 'Email domain must contain a dot (e.g., gmail.com)';
+  if (!domain.includes('.')) return 'Email domain must contain a dot (e.g., example.com)';
 
   const tld = domain.split('.').pop() || '';
   if (tld.length < 2) return 'Email domain has an invalid TLD';
 
   if (!isValidEmail(trimmed)) return 'Please enter a valid email address';
-
-  if (isSubmitter && !domain.toLowerCase().endsWith('gmail.com')) {
-    return 'Submitters must use a Gmail address (required for sending notifications via Gmail SMTP)';
-  }
 
   return null;
 }
@@ -57,13 +52,13 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
   const [loading, setLoading] = useState(false);
 
   const isSubmitter = role === 'submitter' || role === 'admin';
-  const emailError = emailTouched ? getEmailError(email, isSubmitter) : null;
+  const emailError = emailTouched ? getEmailError(email) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const validationError = getEmailError(email, isSubmitter);
+    const validationError = getEmailError(email);
     if (validationError) {
       setError(validationError);
       setEmailTouched(true);
@@ -71,12 +66,12 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
     }
 
     if (isSubmitter && !gmailAppPassword) {
-      setError('Gmail App Password is required for submitters');
+      setError('Google App Password is required for submitters');
       return;
     }
 
     if (isSubmitter && gmailAppPassword.replace(/\s/g, '').length !== 16) {
-      setError('Gmail App Password should be 16 characters (without spaces)');
+      setError('Google App Password should be 16 characters (without spaces)');
       return;
     }
 
@@ -167,7 +162,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
                 emailError ? 'border-red-400 bg-red-50' : 'border-gray-300'
               }`}
-              placeholder={isSubmitter ? 'your.email@gmail.com' : 'your.email@example.com'}
+              placeholder="your.email@example.com"
               required
               autoFocus
             />
@@ -176,7 +171,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             )}
             <p className="text-xs text-gray-500 mt-1">
               {isSubmitter
-                ? 'This Gmail address will be used to send notification emails to verifiers'
+                ? 'This Google account email will be used to send notification emails to verifiers'
                 : 'Notification emails will be sent to this address'}
             </p>
           </div>
@@ -188,7 +183,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <span className="flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5" />
-                    Gmail App Password <span className="text-red-500">*</span>
+                    Google App Password <span className="text-red-500">*</span>
                   </span>
                 </label>
                 <div className="relative">
@@ -209,7 +204,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  16-character password from Google (not your regular Gmail password)
+                  16-character password from Google (not your regular Google password)
                 </p>
               </div>
 
@@ -228,7 +223,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  <span>📋 How to generate a Gmail App Password</span>
+                  <span>📋 How to generate a Google App Password</span>
                   {showInstructions ? (
                     <ChevronUp className="w-4 h-4 text-gray-400" />
                   ) : (
@@ -279,7 +274,7 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
 
                     <div className="bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
                       <p className="text-xs text-yellow-800">
-                        <strong>Note:</strong> This is NOT your regular Gmail password. It&apos;s a special 16-character
+                        <strong>Note:</strong> This is NOT your regular Google password. It&apos;s a special 16-character
                         code generated by Google specifically for third-party apps.
                       </p>
                     </div>
