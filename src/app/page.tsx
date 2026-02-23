@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import CalendarView from '@/components/CalendarView';
 import DashboardSidebar from '@/components/DashboardSidebar';
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   if (status === 'loading') {
     return (
@@ -20,10 +22,16 @@ export default function Home() {
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="flex-1">
-        <CalendarView />
+        <CalendarView 
+          selectedDate={selectedDate}
+          onSelectedDateChange={setSelectedDate}
+        />
       </div>
       <div className="w-full lg:w-72 shrink-0">
-        <DashboardSidebar compact />
+        <DashboardSidebar 
+          compact 
+          selectedDate={selectedDate}
+        />
       </div>
     </div>
   );

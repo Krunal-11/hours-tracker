@@ -50,4 +50,9 @@ export interface DashboardStats {
   monthPending: number;
   monthVerified: number;
   allTimeHours: number;
+  selectedWeekHours?: number;
+  selectedWeekPending?: number;
+  selectedWeekVerified?: number;
+  selectedWeekStart?: string;
+  selectedWeekEnd?: string;
 }

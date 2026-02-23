@@ -21,13 +21,24 @@ export function calculateHours(startTime: string, endTime: string): number {
 
 export function getWeekRange(date: Date): { start: Date; end: Date } {
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Monday start
+  const currentHour = date.getHours();
+  
+  // Find the most recent Monday at 9am
+  let diff = date.getDate() - day + (day === 0 ? -6 : 1); // Monday of current week
   const start = new Date(date);
   start.setDate(diff);
-  start.setHours(0, 0, 0, 0);
+  start.setHours(9, 0, 0, 0);
+  
+  // If current time is before Monday 9am, go back one week
+  if (date < start) {
+    start.setDate(start.getDate() - 7);
+  }
+  
+  // End is exactly 7 days later (next Monday 9am minus 1ms)
   const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
+  end.setDate(start.getDate() + 7);
+  end.setMilliseconds(-1);
+  
   return { start, end };
 }
 

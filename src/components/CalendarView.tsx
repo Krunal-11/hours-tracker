@@ -20,16 +20,28 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  selectedDate?: string | null;
+  onSelectedDateChange?: (date: string | null) => void;
+}
+
+export default function CalendarView({ 
+  selectedDate: externalSelectedDate = null,
+  onSelectedDateChange
+}: CalendarViewProps = {}) {
   const { data: session } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDateInternal] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDate, setAddDate] = useState<string>('');
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [submitters, setSubmitters] = useState<UserOption[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+
+  // Use external selectedDate if provided, otherwise use internal state
+  const selectedDateValue = onSelectedDateChange ? externalSelectedDate : selectedDate;
+  const setSelectedDate = onSelectedDateChange || setSelectedDateInternal;
 
   const user = session?.user as { id: string; role: string; username: string; fullName: string } | undefined;
   const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
@@ -166,7 +178,7 @@ export default function CalendarView() {
     fetchEntries();
   };
 
-  const selectedEntries = selectedDate ? (entriesByDate[selectedDate] || []) : [];
+  const selectedEntries = selectedDateValue ? (entriesByDate[selectedDateValue] || []) : [];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full">
@@ -242,7 +254,7 @@ export default function CalendarView() {
 
               const dateKey = getDateKey(day);
               const isToday = todayStr && day === Number(todayStr);
-              const isSelected = selectedDate === dateKey;
+              const isSelected = selectedDateValue === dateKey;
               const hours = getTotalHours(day);
 
               return (
@@ -310,7 +322,7 @@ export default function CalendarView() {
       {/* Day detail panel */}
       <div className="w-full lg:w-80 shrink-0">
         <DayDetailPanel
-          date={selectedDate}
+          date={selectedDateValue}
           entries={selectedEntries}
           canVerify={user?.role === 'verifier' || user?.role === 'admin'}
           canEdit={canSubmit}

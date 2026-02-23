@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { DashboardStats, TimeEntry } from '@/lib/types';
-import { Clock, CheckCircle2, AlertCircle, TrendingUp, Users, FileText } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, TrendingUp, Users, FileText, Calendar } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
 
 interface UserOption {
@@ -15,9 +15,11 @@ interface UserOption {
 interface DashboardSidebarProps {
   /** When used as compact sidebar (calendar page), hides submissions list */
   compact?: boolean;
+  /** Selected date from calendar (if provided, shows week stats for that date) */
+  selectedDate?: string | null;
 }
 
-export default function DashboardSidebar({ compact = false }: DashboardSidebarProps) {
+export default function DashboardSidebar({ compact = false, selectedDate: externalSelectedDate = null }: DashboardSidebarProps) {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,7 @@ export default function DashboardSidebar({ compact = false }: DashboardSidebarPr
   const [entriesLoading, setEntriesLoading] = useState(true);
   const [submitters, setSubmitters] = useState<UserOption[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  // Removed internal selectedDate state - using prop instead
 
   const user = session?.user as { id: string; role: string } | undefined;
   const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
@@ -47,8 +50,12 @@ export default function DashboardSidebar({ compact = false }: DashboardSidebarPr
 
   const fetchStats = useCallback(async () => {
     try {
-      const userFilter = canViewOthers && selectedUserId ? `?user_id=${selectedUserId}` : '';
-      const res = await fetch(`/api/stats${userFilter}`);
+      const params = new URLSearchParams();
+      if (canViewOthers && selectedUserId) params.set('user_id', selectedUserId);
+      if (externalSelectedDate) params.set('week_of', externalSelectedDate);
+      
+      const queryString = params.toString();
+      const res = await fetch(`/api/stats${queryString ? '?' + queryString : ''}`);
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -58,7 +65,7 @@ export default function DashboardSidebar({ compact = false }: DashboardSidebarPr
     } finally {
       setLoading(false);
     }
-  }, [selectedUserId, canViewOthers]);
+  }, [selectedUserId, externalSelectedDate, canViewOthers]);
 
   const fetchRecentEntries = useCallback(async () => {
     if (compact) return;
@@ -188,13 +195,25 @@ export default function DashboardSidebar({ compact = false }: DashboardSidebarPr
       )}
 
       <StatCard
-        title="This Week"
+        title="This Week (Mon 9am)"
         total={Math.round(stats.weekHours * 100) / 100}
         verified={Math.round(stats.weekVerified * 100) / 100}
         pending={Math.round(stats.weekPending * 100) / 100}
         icon={Clock}
         color="bg-blue-500"
       />
+
+      {/* Selected Week Stats - shown when a date is selected in calendar */}
+      {externalSelectedDate && stats.selectedWeekHours !== undefined && (
+        <StatCard
+          title={`Week of ${new Date(externalSelectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+          total={Math.round(stats.selectedWeekHours * 100) / 100}
+          verified={Math.round((stats.selectedWeekVerified || 0) * 100) / 100}
+          pending={Math.round((stats.selectedWeekPending || 0) * 100) / 100}
+          icon={Calendar}
+          color="bg-indigo-500"
+        />
+      )}
 
       <StatCard
         title="This Month"
