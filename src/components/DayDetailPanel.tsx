@@ -125,6 +125,9 @@ export default function DayDetailPanel({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">
                     {formatTime(entry.start_time)} – {formatTime(entry.end_time)}
+                    {entry.start_time > entry.end_time && (
+                      <span className="text-xs text-indigo-500 ml-1">(next day)</span>
+                    )}
                   </span>
                   {statusBadge(entry.status)}
                 </div>

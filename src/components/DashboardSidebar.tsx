@@ -287,6 +287,9 @@ export default function DashboardSidebar({ compact = false, selectedDate: extern
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-xs font-medium text-gray-700">
                                 {formatTime(entry.start_time)} – {formatTime(entry.end_time)}
+                                {entry.start_time > entry.end_time && (
+                                  <span className="text-[10px] text-indigo-500 ml-0.5">(next day)</span>
+                                )}
                               </span>
                               {statusBadge(entry.status)}
                             </div>

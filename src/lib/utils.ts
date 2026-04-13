@@ -12,11 +12,19 @@ export function formatTime(time: string): string {
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
 }
 
-export function calculateHours(startTime: string, endTime: string): number {
+export function calculateHours(startTime: string, endTime: string, overnight = false): number {
   const [startH, startM] = startTime.split(':').map(Number);
   const [endH, endM] = endTime.split(':').map(Number);
-  const diff = (endH * 60 + endM - (startH * 60 + startM)) / 60;
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  const diff = overnight
+    ? (1440 - startMinutes + endMinutes) / 60
+    : (endMinutes - startMinutes) / 60;
   return Math.round(diff * 100) / 100;
+}
+
+export function isOvernightEntry(startTime: string, endTime: string): boolean {
+  return startTime > endTime;
 }
 
 export function getWeekRange(date: Date): { start: Date; end: Date } {

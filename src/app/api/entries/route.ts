@@ -4,6 +4,10 @@ import { getServiceSupabase } from '@/lib/supabase';
 import { sendNewEntryEmail } from '@/lib/email';
 import { calculateHours } from '@/lib/utils';
 
+function parseOvernight(startTime: string, endTime: string, overnightFlag?: boolean): boolean {
+  return overnightFlag === true || startTime > endTime;
+}
+
 // GET /api/entries?month=2026-02&user_id=xxx
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -70,15 +74,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { date, start_time, end_time, description } = body;
+  const { date, start_time, end_time, description, overnight: overnightFlag } = body;
 
   if (!date || !start_time || !end_time || !description) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const hours = calculateHours(start_time, end_time);
-  if (hours <= 0) {
-    return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
+  const overnight = parseOvernight(start_time, end_time, overnightFlag);
+  const hours = calculateHours(start_time, end_time, overnight);
+  if (hours <= 0 || hours > 24) {
+    return NextResponse.json({ error: 'Invalid time range' }, { status: 400 });
   }
 
   const supabase = getServiceSupabase();
@@ -144,7 +149,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, date, start_time, end_time, description } = body;
+  const { id, date, start_time, end_time, description, overnight: overnightFlag } = body;
 
   if (!id) {
     return NextResponse.json({ error: 'Entry ID required' }, { status: 400 });
@@ -163,9 +168,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Not found or not authorized' }, { status: 404 });
   }
 
-  const hours = calculateHours(start_time, end_time);
-  if (hours <= 0) {
-    return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
+  const overnight = parseOvernight(start_time, end_time, overnightFlag);
+  const hours = calculateHours(start_time, end_time, overnight);
+  if (hours <= 0 || hours > 24) {
+    return NextResponse.json({ error: 'Invalid time range' }, { status: 400 });
   }
 
   const { data: entry, error } = await supabase

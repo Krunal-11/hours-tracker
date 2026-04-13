@@ -16,15 +16,27 @@ export default function AddEntryModal({ date, entry, onClose, onSaved }: AddEntr
   const [formDate, setFormDate] = useState(entry?.date || date);
   const [startTime, setStartTime] = useState(entry?.start_time?.slice(0, 5) || '09:00');
   const [endTime, setEndTime] = useState(entry?.end_time?.slice(0, 5) || '17:00');
+  const [overnight, setOvernight] = useState(
+    isEdit && entry ? entry.start_time?.slice(0, 5) > entry.end_time?.slice(0, 5) : false
+  );
   const [description, setDescription] = useState(entry?.description || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-detect overnight when times change
+  const isTimesOvernight = startTime > endTime;
 
   // Calculate hours
   const calcHours = () => {
     const [sh, sm] = startTime.split(':').map(Number);
     const [eh, em] = endTime.split(':').map(Number);
-    const diff = (eh * 60 + em - (sh * 60 + sm)) / 60;
+    const startMinutes = sh * 60 + sm;
+    const endMinutes = eh * 60 + em;
+    if (overnight || isTimesOvernight) {
+      const diff = (1440 - startMinutes + endMinutes) / 60;
+      return diff > 0 ? Math.round(diff * 100) / 100 : 0;
+    }
+    const diff = (endMinutes - startMinutes) / 60;
     return diff > 0 ? Math.round(diff * 100) / 100 : 0;
   };
 
@@ -35,6 +47,10 @@ export default function AddEntryModal({ date, entry, onClose, onSaved }: AddEntr
     const hours = calcHours();
     if (hours <= 0) {
       setError('End time must be after start time');
+      return;
+    }
+    if (hours > 24) {
+      setError('Entry cannot exceed 24 hours');
       return;
     }
     if (!description.trim()) {
@@ -49,6 +65,7 @@ export default function AddEntryModal({ date, entry, onClose, onSaved }: AddEntr
         date: formDate,
         start_time: startTime,
         end_time: endTime,
+        overnight: overnight || isTimesOvernight,
         description: description.trim(),
       };
 
@@ -114,7 +131,7 @@ export default function AddEntryModal({ date, entry, onClose, onSaved }: AddEntr
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Time{(overnight || isTimesOvernight) ? ' (next day)' : ''}</label>
               <input
                 type="time"
                 value={endTime}
@@ -124,6 +141,14 @@ export default function AddEntryModal({ date, entry, onClose, onSaved }: AddEntr
               />
             </div>
           </div>
+
+          {/* Overnight indicator */}
+          {isTimesOvernight && (
+            <div className="flex items-center gap-2 text-xs bg-indigo-50 text-indigo-700 px-3 py-2 rounded-lg">
+              <span>🌙</span>
+              <span>This entry spans overnight into the next day</span>
+            </div>
+          )}
 
           {/* Hours display */}
           {hours > 0 && (
