@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
 
-// GET /api/users/submitters - returns list of users who can submit hours (admin, submitter roles)
+// GET /api/users/submitters - returns list of submitter users for viewer filters
 export async function GET() {
   const session = await auth();
   if (!session?.user) {
@@ -19,7 +19,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('users')
     .select('id, username, full_name')
-    .in('role', ['submitter', 'admin'])
+    .eq('role', 'submitter')
     .order('full_name', { ascending: true });
 
   if (error) {
