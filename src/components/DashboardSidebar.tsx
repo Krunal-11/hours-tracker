@@ -3,8 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { DashboardStats, TimeEntry } from '@/lib/types';
-import { Clock, CheckCircle2, AlertCircle, TrendingUp, FileText, Calendar } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, TrendingUp, FileText, Calendar, Users } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
+
+interface UserOption {
+  id: string;
+  full_name: string;
+  username: string;
+}
 
 interface DashboardSidebarProps {
   /** When used as compact sidebar (calendar page), hides submissions list */
@@ -13,23 +19,45 @@ interface DashboardSidebarProps {
   selectedDate?: string | null;
   /** Selected submitter user id for filtering stats/recent entries */
   selectedUserId?: string;
+  /** Setter for selected submitter id, if externally controlled */
+  onSelectedUserIdChange?: (userId: string) => void;
 }
 
 export default function DashboardSidebar({
   compact = false,
   selectedDate: externalSelectedDate = null,
   selectedUserId: externalSelectedUserId = '',
+  onSelectedUserIdChange,
 }: DashboardSidebarProps) {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(true);
+  const [submitters, setSubmitters] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserIdInternal] = useState<string>('');
   // Removed internal selectedDate state - using prop instead
 
   const user = session?.user as { id: string; role: string } | undefined;
   const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
-  const selectedUserIdValue = externalSelectedUserId;
+  const selectedUserIdValue = onSelectedUserIdChange ? externalSelectedUserId : selectedUserId;
+  const setSelectedUserId = onSelectedUserIdChange || setSelectedUserIdInternal;
+
+  // Fetch submitters for verifier/viewer/admin in full dashboard mode
+  useEffect(() => {
+    if (!canViewOthers || compact) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/users/submitters');
+        if (res.ok) {
+          const data = await res.json();
+          setSubmitters(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch submitters:', err);
+      }
+    })();
+  }, [canViewOthers, compact]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -156,6 +184,31 @@ export default function DashboardSidebar({
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
+
+      {/* User selector for verifier/viewer/admin (full dashboard only) */}
+      {!compact && canViewOthers && submitters.length > 0 && (
+        <div className="mb-4 rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Choose User For Dashboard Stats</p>
+              <p className="text-xs text-blue-700">Pick one submitter to focus this view, or keep All Submitters.</p>
+            </div>
+          </div>
+          <select
+            value={selectedUserIdValue}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
+          >
+            <option value="">All Submitters</option>
+            {submitters.map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name} (@{s.username})</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <StatCard
         title="This Week (Mon 9am)"

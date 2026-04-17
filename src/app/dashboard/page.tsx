@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import DashboardSidebar from '@/components/DashboardSidebar';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   if (status === 'loading') {
     return (
@@ -18,7 +20,10 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <DashboardSidebar />
+      <DashboardSidebar
+        selectedUserId={selectedUserId}
+        onSelectedUserIdChange={setSelectedUserId}
+      />
     </div>
   );
 }
