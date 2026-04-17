@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Key, Eye, EyeOff, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, Key, Eye, EyeOff, ExternalLink, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface EmailSetupModalProps {
   role: string;
   currentEmail: string | null;
   onComplete: () => void;
+  canSkip?: boolean;
+  onSkip?: () => void;
+  mode?: 'onboarding' | 'settings';
 }
 
 /**
@@ -42,7 +45,14 @@ function getEmailError(email: string): string | null {
   return null;
 }
 
-export default function EmailSetupModal({ role, currentEmail, onComplete }: EmailSetupModalProps) {
+export default function EmailSetupModal({
+  role,
+  currentEmail,
+  onComplete,
+  canSkip = false,
+  onSkip,
+  mode = 'onboarding',
+}: EmailSetupModalProps) {
   const [email, setEmail] = useState(currentEmail || '');
   const [gmailAppPassword, setGmailAppPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -53,6 +63,11 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
 
   const requiresSmtp = role === 'submitter' || role === 'verifier' || role === 'admin';
   const emailError = emailTouched ? getEmailError(email) : null;
+  const isSettingsMode = mode === 'settings';
+
+  const handleSkip = () => {
+    onSkip?.();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,18 +144,35 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-emerald-600 px-6 py-5 text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <Mail className="w-5 h-5" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Mail className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {isSettingsMode ? 'Email Settings' : 'Set Up Email Notifications'}
+                </h2>
+                <p className="text-emerald-100 text-sm">
+                  {isSettingsMode
+                    ? 'Add or update your email credentials for notifications'
+                    : requiresSmtp
+                      ? 'Required to send notification emails from your account'
+                      : 'Required to receive notifications'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold">Set Up Email Notifications</h2>
-              <p className="text-emerald-100 text-sm">
-                {requiresSmtp
-                  ? 'Required to send notification emails from your account'
-                  : 'Required to receive notifications'}
-              </p>
-            </div>
+            {(canSkip || isSettingsMode) && (
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="p-1 rounded-md hover:bg-white/15 transition-colors"
+                aria-label={isSettingsMode ? 'Close email settings' : 'Skip email setup'}
+                title={isSettingsMode ? 'Close' : 'Skip for now'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -298,12 +330,22 @@ export default function EmailSetupModal({ role, currentEmail, onComplete }: Emai
             <div className="bg-red-50 text-red-700 text-sm px-4 py-2 rounded-lg">{error}</div>
           )}
 
+          {canSkip && !isSettingsMode && (
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="w-full py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Skip for now
+            </button>
+          )}
+
           <button
             type="submit"
             disabled={loading}
             className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Verifying & Saving...' : 'Save & Continue'}
+            {loading ? 'Verifying & Saving...' : isSettingsMode ? 'Save Email Settings' : 'Save & Continue'}
           </button>
         </form>
       </div>

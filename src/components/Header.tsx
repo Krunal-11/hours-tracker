@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Clock, Calendar, LayoutDashboard, Shield, LogOut, User } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+// import EmailSetupModal from './EmailSetupModal'; // Paused: email setup UX
 import { cn } from '@/lib/utils';
 
 export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  // const [showEmailSettings, setShowEmailSettings] = useState(false); // Paused: email setup UX
 
   if (!session?.user) return null;
 
@@ -69,6 +71,17 @@ export default function Header() {
               </div>
             </div>
 
+            {/* Paused: Email settings entry point */}
+            {/*
+            <button
+              onClick={() => setShowEmailSettings(true)}
+              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+              title="Email settings"
+            >
+              <Mail className="w-4 h-4" />
+            </button>
+            */}
+
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
@@ -79,6 +92,21 @@ export default function Header() {
           </div>
         </div>
       </div>
+      {/* Paused: Email settings modal */}
+      {/*
+      {showEmailSettings && (
+        <EmailSetupModal
+          role={user.role}
+          currentEmail={(session.user as { userEmail?: string | null }).userEmail ?? null}
+          mode="settings"
+          onComplete={async () => {
+            await update({});
+            setShowEmailSettings(false);
+          }}
+          onSkip={() => setShowEmailSettings(false)}
+        />
+      )}
+      */}
     </header>
   );
 }

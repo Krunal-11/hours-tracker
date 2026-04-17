@@ -3,55 +3,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { DashboardStats, TimeEntry } from '@/lib/types';
-import { Clock, CheckCircle2, AlertCircle, TrendingUp, Users, FileText, Calendar } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, TrendingUp, FileText, Calendar } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
-
-interface UserOption {
-  id: string;
-  full_name: string;
-  username: string;
-}
 
 interface DashboardSidebarProps {
   /** When used as compact sidebar (calendar page), hides submissions list */
   compact?: boolean;
   /** Selected date from calendar (if provided, shows week stats for that date) */
   selectedDate?: string | null;
+  /** Selected submitter user id for filtering stats/recent entries */
+  selectedUserId?: string;
 }
 
-export default function DashboardSidebar({ compact = false, selectedDate: externalSelectedDate = null }: DashboardSidebarProps) {
+export default function DashboardSidebar({
+  compact = false,
+  selectedDate: externalSelectedDate = null,
+  selectedUserId: externalSelectedUserId = '',
+}: DashboardSidebarProps) {
   const { data: session } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(true);
-  const [submitters, setSubmitters] = useState<UserOption[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
   // Removed internal selectedDate state - using prop instead
 
   const user = session?.user as { id: string; role: string } | undefined;
   const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
-
-  // Fetch submitters for verifier/viewer/admin
-  useEffect(() => {
-    if (!canViewOthers) return;
-    (async () => {
-      try {
-        const res = await fetch('/api/users/submitters');
-        if (res.ok) {
-          const data = await res.json();
-          setSubmitters(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch submitters:', err);
-      }
-    })();
-  }, [canViewOthers]);
+  const selectedUserIdValue = externalSelectedUserId;
 
   const fetchStats = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (canViewOthers && selectedUserId) params.set('user_id', selectedUserId);
+      if (canViewOthers && selectedUserIdValue) params.set('user_id', selectedUserIdValue);
       if (externalSelectedDate) params.set('week_of', externalSelectedDate);
       
       const queryString = params.toString();
@@ -65,13 +48,13 @@ export default function DashboardSidebar({ compact = false, selectedDate: extern
     } finally {
       setLoading(false);
     }
-  }, [selectedUserId, externalSelectedDate, canViewOthers]);
+  }, [selectedUserIdValue, externalSelectedDate, canViewOthers]);
 
   const fetchRecentEntries = useCallback(async () => {
     if (compact) return;
     try {
       setEntriesLoading(true);
-      const userFilter = canViewOthers && selectedUserId ? `&user_id=${selectedUserId}` : '';
+      const userFilter = canViewOthers && selectedUserIdValue ? `&user_id=${selectedUserIdValue}` : '';
       const res = await fetch(`/api/entries?recent=true${userFilter}`);
       if (res.ok) {
         const data = await res.json();
@@ -82,7 +65,7 @@ export default function DashboardSidebar({ compact = false, selectedDate: extern
     } finally {
       setEntriesLoading(false);
     }
-  }, [compact, selectedUserId, canViewOthers]);
+  }, [compact, selectedUserIdValue, canViewOthers]);
 
   useEffect(() => {
     fetchStats();
@@ -173,26 +156,6 @@ export default function DashboardSidebar({ compact = false, selectedDate: extern
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-
-      {/* User selector for verifier/viewer/admin (only on full dashboard) */}
-      {!compact && canViewOthers && submitters.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700">Viewing hours for:</label>
-          </div>
-          <select
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Submitters</option>
-            {submitters.map((s) => (
-              <option key={s.id} value={s.id}>{s.full_name} (@{s.username})</option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <StatCard
         title="This Week (Mon 9am)"

@@ -8,6 +8,7 @@ import DashboardSidebar from '@/components/DashboardSidebar';
 export default function Home() {
   const { data: session, status } = useSession();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   if (status === 'loading') {
     return (
@@ -25,12 +26,15 @@ export default function Home() {
         <CalendarView 
           selectedDate={selectedDate}
           onSelectedDateChange={setSelectedDate}
+          selectedUserId={selectedUserId}
+          onSelectedUserIdChange={setSelectedUserId}
         />
       </div>
       <div className="w-full lg:w-72 shrink-0">
         <DashboardSidebar 
           compact 
           selectedDate={selectedDate}
+          selectedUserId={selectedUserId}
         />
       </div>
     </div>

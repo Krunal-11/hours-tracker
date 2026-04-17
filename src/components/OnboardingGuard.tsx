@@ -4,20 +4,21 @@ import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import ChangePasswordModal from './ChangePasswordModal';
-import EmailSetupModal from './EmailSetupModal';
+// import EmailSetupModal from './EmailSetupModal'; // Paused: email setup UX
 
 /**
  * OnboardingGuard wraps the app content and shows blocking modals for:
  * 1. First-login password change (must_change_password = true)
- * 2. Email setup (email_setup_complete = false, after password is set)
+ * 2. Optional email setup prompt (email_setup_complete = false, after password is set)
  *
- * These modals cannot be dismissed — the user must complete them to proceed.
+ * Password change is mandatory. Email setup can be skipped and completed later.
  */
 export default function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const { data: session, status, update } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [step, setStep] = useState<'loading' | 'change-password' | 'email-setup' | 'done'>('loading');
+  const [emailSetupSkipped, setEmailSetupSkipped] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') {
@@ -37,12 +38,13 @@ export default function OnboardingGuard({ children }: { children: React.ReactNod
 
     if (user.mustChangePassword) {
       setStep('change-password');
-    } else if (!user.emailSetupComplete) {
-      setStep('email-setup');
+    // Paused: email setup onboarding
+    // } else if (!user.emailSetupComplete && !emailSetupSkipped) {
+    //   setStep('email-setup');
     } else {
       setStep('done');
     }
-  }, [session, status]);
+  }, [session, status, emailSetupSkipped]);
 
   const handlePasswordChanged = async () => {
     const refreshedSession = await update({});
@@ -66,6 +68,24 @@ export default function OnboardingGuard({ children }: { children: React.ReactNod
 
   const handleEmailSetupComplete = async () => {
     await update({});
+    setEmailSetupSkipped(false);
+    setStep('done');
+    router.refresh();
+  };
+
+  const handleEmailSetupSkipped = async () => {
+    try {
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailSetupComplete: true }),
+      });
+      await update({});
+    } catch {
+      // Even if the request fails, allow temporary skip for this session.
+    }
+
+    setEmailSetupSkipped(true);
     setStep('done');
     router.refresh();
   };
@@ -88,19 +108,22 @@ export default function OnboardingGuard({ children }: { children: React.ReactNod
     );
   }
 
-  if (step === 'email-setup' && session?.user) {
-    const user = session.user as { role: string; userEmail: string | null };
-    return (
-      <>
-        {children}
-        <EmailSetupModal
-          role={user.role}
-          currentEmail={user.userEmail}
-          onComplete={handleEmailSetupComplete}
-        />
-      </>
-    );
-  }
+  // Paused: email setup onboarding modal
+  // if (step === 'email-setup' && session?.user) {
+  //   const user = session.user as { role: string; userEmail: string | null };
+  //   return (
+  //     <>
+  //       {children}
+  //       <EmailSetupModal
+  //         role={user.role}
+  //         currentEmail={user.userEmail}
+  //         onComplete={handleEmailSetupComplete}
+  //         canSkip={true}
+  //         onSkip={handleEmailSetupSkipped}
+  //       />
+  //     </>
+  //   );
+  // }
 
   return <>{children}</>;
 }

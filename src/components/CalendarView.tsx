@@ -23,11 +23,15 @@ const MONTHS = [
 interface CalendarViewProps {
   selectedDate?: string | null;
   onSelectedDateChange?: (date: string | null) => void;
+  selectedUserId?: string;
+  onSelectedUserIdChange?: (userId: string) => void;
 }
 
 export default function CalendarView({ 
   selectedDate: externalSelectedDate = null,
-  onSelectedDateChange
+  onSelectedDateChange,
+  selectedUserId: externalSelectedUserId = '',
+  onSelectedUserIdChange
 }: CalendarViewProps = {}) {
   const { data: session } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -37,11 +41,13 @@ export default function CalendarView({
   const [addDate, setAddDate] = useState<string>('');
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [submitters, setSubmitters] = useState<UserOption[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserId, setSelectedUserIdInternal] = useState<string>('');
 
   // Use external selectedDate if provided, otherwise use internal state
   const selectedDateValue = onSelectedDateChange ? externalSelectedDate : selectedDate;
   const setSelectedDate = onSelectedDateChange || setSelectedDateInternal;
+  const selectedUserIdValue = onSelectedUserIdChange ? externalSelectedUserId : selectedUserId;
+  const setSelectedUserId = onSelectedUserIdChange || setSelectedUserIdInternal;
 
   const user = session?.user as { id: string; role: string; username: string; fullName: string } | undefined;
   const canViewOthers = user?.role === 'verifier' || user?.role === 'viewer' || user?.role === 'admin';
@@ -69,7 +75,7 @@ export default function CalendarView({
 
   const fetchEntries = useCallback(async () => {
     try {
-      const userFilter = canViewOthers && selectedUserId ? `&user_id=${selectedUserId}` : '';
+      const userFilter = canViewOthers && selectedUserIdValue ? `&user_id=${selectedUserIdValue}` : '';
       const res = await fetch(`/api/entries?month=${monthKey}${userFilter}`);
       if (res.ok) {
         const data = await res.json();
@@ -78,7 +84,7 @@ export default function CalendarView({
     } catch (err) {
       console.error('Failed to fetch entries:', err);
     }
-  }, [monthKey, selectedUserId, canViewOthers]);
+  }, [monthKey, selectedUserIdValue, canViewOthers]);
 
   useEffect(() => {
     fetchEntries();
@@ -186,16 +192,23 @@ export default function CalendarView({
       <div className="flex-1">
         {/* User selector for verifier/viewer/admin */}
         {canViewOthers && submitters.length > 0 && (
-          <div className="flex items-center gap-2 mb-4 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-            <Users className="w-4 h-4 text-gray-500" />
-            <label className="text-sm font-medium text-gray-700">Viewing hours for:</label>
+          <div className="mb-4 rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-blue-900">Choose User For Calendar + Stats</p>
+                <p className="text-xs text-blue-700">Pick one submitter to focus this view, or keep All Submitters.</p>
+              </div>
+            </div>
             <select
-              value={selectedUserId}
+              value={selectedUserIdValue}
               onChange={(e) => {
                 setSelectedUserId(e.target.value);
                 setSelectedDate(null);
               }}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
             >
               <option value="">All Submitters</option>
               {submitters.map((s) => (

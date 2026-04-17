@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
-import { sendNewEntryEmail } from '@/lib/email';
+// import { sendNewEntryEmail } from '@/lib/email'; // Paused: outbound email sending
 import { calculateHours } from '@/lib/utils';
 
 function parseOvernight(startTime: string, endTime: string, overnightFlag?: boolean): boolean {
@@ -121,21 +121,21 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('notifications').insert(notifications);
 
-    // Send email only to verifiers
-    for (const u of notifyUsers) {
-      if (u.role === 'verifier' && u.email) {
-        await sendNewEntryEmail(
-          session.user.id,
-          u.email as string,
-          session.user.fullName || session.user.username,
-          date,
-          start_time,
-          end_time,
-          hours,
-          description
-        );
-      }
-    }
+    // Paused: email notifications to verifiers
+    // for (const u of notifyUsers) {
+    //   if (u.role === 'verifier' && u.email) {
+    //     await sendNewEntryEmail(
+    //       session.user.id,
+    //       u.email as string,
+    //       session.user.fullName || session.user.username,
+    //       date,
+    //       start_time,
+    //       end_time,
+    //       hours,
+    //       description
+    //     );
+    //   }
+    // }
   }
 
   return NextResponse.json(entry, { status: 201 });
@@ -210,21 +210,21 @@ export async function PUT(req: NextRequest) {
     }));
     await supabase.from('notifications').insert(notifications);
 
-    // Send email only to verifiers
-    for (const u of notifyUsers) {
-      if (u.role === 'verifier' && u.email) {
-        await sendNewEntryEmail(
-          session.user.id,
-          u.email as string,
-          session.user.fullName || session.user.username,
-          date,
-          start_time,
-          end_time,
-          hours,
-          description
-        );
-      }
-    }
+    // Paused: email notifications to verifiers
+    // for (const u of notifyUsers) {
+    //   if (u.role === 'verifier' && u.email) {
+    //     await sendNewEntryEmail(
+    //       session.user.id,
+    //       u.email as string,
+    //       session.user.fullName || session.user.username,
+    //       date,
+    //       start_time,
+    //       end_time,
+    //       hours,
+    //       description
+    //     );
+    //   }
+    // }
   }
 
   return NextResponse.json(entry);

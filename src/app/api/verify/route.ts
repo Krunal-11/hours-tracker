@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getServiceSupabase } from '@/lib/supabase';
-import { sendVerificationEmail } from '@/lib/email';
+// import { sendVerificationEmail } from '@/lib/email'; // Paused: outbound email sending
 
 // POST /api/verify
 export async function POST(req: NextRequest) {
@@ -83,18 +83,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Send email to submitter
-  if (submitter.email) {
-    await sendVerificationEmail(
-      session.user.id,
-      submitter.email as string,
-      session.user.fullName || session.user.username,
-      entry.date,
-      entry.hours,
-      status as 'verified' | 'rejected',
-      comment
-    );
-  }
+  // Paused: email to submitter
+  // if (submitter.email) {
+  //   await sendVerificationEmail(
+  //     session.user.id,
+  //     submitter.email as string,
+  //     session.user.fullName || session.user.username,
+  //     entry.date,
+  //     entry.hours,
+  //     status as 'verified' | 'rejected',
+  //     comment
+  //   );
+  // }
 
   return NextResponse.json(entry);
 }
